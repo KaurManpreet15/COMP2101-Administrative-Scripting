@@ -1,0 +1,68 @@
+function get_computersystem {
+    write-output "------------Section 1------------";
+
+    get-wmiobject -class win32_computersystem | format-list Description
+}
+
+function get_operatingsystem {
+    write-output "------------Section 2------------";
+
+    get-wmiobject -class win32_operatingsystem | format-list Name,Version
+}
+
+function get_processor {
+    write-output "------------Section 3------------";
+
+    get-wmiobject -class win32_processor | format-list Description,MaxClockSpeed,NumberOfCores,L1CacheSize,L2CacheSize,L3CacheSize
+}
+
+function get_ram {
+    write-output "------------Section 4------------";
+
+    get-wmiobject -class win32_physicalmemory | format-table Manufacturer,Description,Capacity,BankLabel,DeviceLocator
+    $total_ram_installed = get-wmiobject -class win32_physicalmemory | Select-Object Capacity
+    $output = $total_ram_installed.Capacity / 1gb;
+    write-output "Total RAM: $output GB"
+}
+
+function logical_disk {
+    write-output "------------Section 5------------";
+
+    $diskdrives = Get-CIMInstance CIM_diskdrive
+
+    foreach ($disk in $diskdrives) {
+        $partitions = $disk | get-cimassociatedinstance -resultclassname CIM_diskpartition
+        foreach ($partition in $partitions) {
+            $logicaldisks = $partition | get-cimassociatedinstance -resultclassname CIM_logicaldisk
+            foreach ($logicaldisk in $logicaldisks) {
+                        new-object -typename psobject -property @{Manufacturer=$disk.Manufacturer
+                                                                Location=$partition.deviceid
+                                                                Drive=$logicaldisk.deviceid
+                                                                "Size(GB)"=$logicaldisk.size / 1gb -as [int]
+                                                                }
+            }
+        }
+    }
+}
+
+function get_network {
+    write-output "------------Section 6------------";
+
+    get-ciminstance win32_networkadapterconfiguration | Where-object -Property IPEnabled -eq True | format-table Caption,InterfaceIndex,IPAddress,IPSubnet,DNSDomain,DNSHostname
+}
+
+function get_graphics {
+    write-output "------------Section 7------------";
+    
+    $obj = get-ciminstance win32_videocontroller | Select-Object -Property CurrentHorizontalResolution,CurrentVerticalResolution
+    $output = $obj.CurrentHorizontalResolution.ToString()+"x"+$obj.CurrentVerticalResolution.ToString()
+    write-output $output;
+}
+
+get_computersystem
+get_operatingsystem
+get_processor
+get_ram
+logical_disk
+get_network
+get_graphics
